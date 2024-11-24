@@ -1,0 +1,114 @@
+import random
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+torch.manual_seed(0)
+np.random.seed(0)
+random.seed(0)
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads, dropout=0.0):
+        assert embed_dim % num_heads == 0
+
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.dropout = dropout
+        self.head_dim = embed_dim // num_heads
+
+        # queries, keys, values weight matrices
+        self.atten_proj = nn.Linear(embed_dim, embed_dim * 3)
+        self.output_proj = nn.Linear(embed_dim, embed_dim)
+
+    def forward(self, x):
+        Q, K, V = self.atten_proj(x).split(self.embed_dim, dim=-1)
+        b, s, _ = Q.shape
+
+        Q = Q.view(b, s, self.num_heads, self.head_dim)
+        K = K.view(b, s, self.num_heads, self.head_dim)
+        V = V.view(b, s, self.num_heads, self.head_dim)
+
+        atten = (
+            F.scaled_dot_product_attention(
+                Q, K, V, dropout=self.dropout, is_causal=True
+            )
+            .permute(0, 2, 1, 3)
+            .contiguous()
+            .view(7, 2, -1)
+        )
+        output = F.dropout(self.output_proj(atten), p=self.dropout).contiguous()
+        return output
+
+
+class MLPLayer(nn.Module):
+    def __init__(self, embed_dim, dropout=0.0):
+        self.embed_dim = embed_dim
+        self.dropout = dropout
+        self.fc1 = nn.Linear(embed_dim, 4 * embed_dim)
+        self.fc2 = nn.Linear(4 * embed_dim, embed_dim)
+        self.activation = nn.ReLU()
+
+    def forward(self, x):
+        x = nn.activation(self.fc1(x))
+        x = F.dropout(self.fc2(x), self.dropout)
+        return x
+
+
+class DecoderBlock(nn.Module):
+    def __init__(self, embed_dim, num_heads, dropout=0.0):
+        self.embed_dim = embed_dim
+        
+        self.ln1 = nn.LayerNorm(embed_dim)
+        self.attn_layer = MultiHeadAttention(embed_dim, num_heads, dropout=dropout)
+        self.ln2 = nn.LayerNorm(embed_dim)
+        self.fc_layer = MLPLayer(embed_dim, dropout=dropout)
+        
+
+    def forward(self x):
+        x = x + self.attn_layer(self.ln1(x))
+        x = x + self.fc_layer(self.ln2(x))
+        return x
+    
+    
+class Transformer(nn.Module):
+    def __init__(self, embed_dim, sequence_len, vocab_size, num_heads, num_blocks, dropout=0.0):
+        self.embed_dim = embed_dim
+        self.vocab_size = vocab_size
+        self.num_heads = num_heads
+        self.num_blocks = num_blocks
+        
+        self.token_embeds = nn.Embedding(vocab_size, embed_dim)
+        self.pos_embeds = nn.Embedding(sequence_len)
+        self.dropout = nn.Dropout(dropout)
+        
+        self.blocks = nn.ModuleList([DecoderBlock(embed_dim, num_heads, dropout=dropout) for _ in range(num_blocks)])
+        
+        self.ln = nn.LayerNorm(embed_dim)
+        self.lm_head = nn.Linear(embed_dim, vocab_size)
+
+    def forward(self, x, targets=None):
+        
+        b, s = x.shape 
+        seq_len = torch.arange(seq_len, dtype=torch.long, device=x.device)
+        
+        token_embed = self.token_embeds(x)
+        pos_embed = self.pos_embeds(x)
+        x = self.dropout(token_embed + pos_embed)
+        
+        for block in self.blocks:
+            x = block(x)
+        
+        x = self.ln(x)
+        
+        if targets is not None:
+            preds = self.lm_head(x)
+            loss = F.cross_entropy(preds.view(-1, preds.shape[-1]), targets.view(-1))
+        else:
+            
+            preds = self.lm_head(x[:, [-1], :])
+            loss = None
+            
+        return preds, loss
+        
