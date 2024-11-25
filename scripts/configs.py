@@ -27,5 +27,3 @@ hp_configs = {
     "notes": "based on learnings increasing epochs to 50, increasing batch size to 256, added gradient clipping -> 1\
         , added warmup steps -> 0.1, kept dropout -> 0.1",
 }
-
-device = "cpu"
