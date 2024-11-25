@@ -71,6 +71,7 @@ def train_func(
     device = hp_config["device"]
     project_name = hp_config["project_name"]
     gpu_idx = hp_config["gpu_idx"]
+    gradient_clip_val = hp_config["gradient_clip_val"]
 
     device = torch.device(device)
     model.to(device=device)
@@ -83,7 +84,7 @@ def train_func(
     scheduler = get_scheduler(
         "cosine_with_min_lr",
         optimizer,
-        num_warmup_steps=num_warmpup_steps,
+        num_warmup_steps=int(num_warmpup_steps * epochs * len(train_loader)),
         num_training_steps=epochs * len(train_loader),
         scheduler_specific_kwargs={"min_lr": min_lr},
     )
@@ -116,6 +117,10 @@ def train_func(
 
             preds, loss = model(inputs, targets=targets)
             loss.backward()
+
+            if gradient_clip_val is not None:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip_val)
+
             optimizer.step()
             optimizer.zero_grad()
 
