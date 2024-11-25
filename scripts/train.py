@@ -72,6 +72,7 @@ def train_func(
     project_name = hp_config["project_name"]
     gpu_idx = hp_config["gpu_idx"]
     gradient_clip_val = hp_config["gradient_clip_val"]
+    grad_accumulation_steps = hp_config["grad_accumulation_steps"]
 
     device = torch.device(device)
     model.to(device=device)
@@ -111,18 +112,24 @@ def train_func(
 
         # train on train set
         model.train()
-        for batch in tqdm(train_loader, desc="Training"):
+        for batch_idx, batch in enumerate(tqdm(train_loader, desc="Training")):
             batch = batch.to(device)
             inputs, targets = batch[:, :-1], batch[:, 1:]
 
             preds, loss = model(inputs, targets=targets)
+            loss = loss / grad_accumulation_steps
             loss.backward()
 
-            if gradient_clip_val is not None:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip_val)
+            if ((batch_idx + 1) % grad_accumulation_steps == 0) or (
+                batch_idx + 1 == len(train_loader)
+            ):
+                if gradient_clip_val is not None:
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), gradient_clip_val
+                    )
 
-            optimizer.step()
-            optimizer.zero_grad()
+                optimizer.step()
+                optimizer.zero_grad()
 
             train_perlexity.update(preds.detach(), targets)
             train_loss.append(loss.detach().cpu())
