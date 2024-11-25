@@ -170,3 +170,5 @@ checkpoints
 submission.csv
 data
 mean_test_perplexity.txt
+*submission*
+wandb

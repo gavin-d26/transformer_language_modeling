@@ -146,7 +146,7 @@ def train_func(
                     "Loss/train": metrics["train_loss"],
                     "Loss/val": metrics["val_loss"],
                     "Perplexity/train": metrics["train_perlexity"],
-                    "Accuracy/val": metrics["val_perplexity"],
+                    "Perplexity/val": metrics["val_perplexity"],
                     "epoch": epoch,
                 }
             )
