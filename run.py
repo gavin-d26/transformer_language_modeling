@@ -69,12 +69,15 @@ def main():
         PADDING_TOKEN_ID=PADDING_TOKEN_ID,
     )
 
-    predict.make_submission_file(
+    mean_test_perplexity = predict.make_submission_file(
         model,
         test_loader,
         save_submission_file_path=submission_csv_path,
         device=configs.hp_configs["device"],
     )
+
+    with open("mean_test_perplexity.txt", "a") as file:
+        print(f"{configs.hp_configs['run_name']}: {mean_test_perplexity}", file=file)
 
 
 if __name__ == "__main__":

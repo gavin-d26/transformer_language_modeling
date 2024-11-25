@@ -17,6 +17,7 @@ hp_configs = {
     "num_warmpup_steps": 50,
     # logging
     "wandb_flag": False,
+    "project_name": "language_modeling",
     # system
     "num_proc": 2,
     "device": "cuda",

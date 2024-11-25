@@ -69,6 +69,7 @@ def train_func(
     num_warmpup_steps = hp_config["num_warmpup_steps"]
     optimizer = hp_config["optimizer"]
     device = hp_config["device"]
+    project_name = hp_config["project_name"]
 
     device = torch.device(device)
     model.to(device=device)
@@ -94,7 +95,7 @@ def train_func(
     max_epoch = 0
 
     if wandb_flag is True:
-        wandb.init(project="language_modeling", name=run_name, config=hp_config)
+        wandb.init(project=project_name, name=run_name, config=hp_config)
 
     print(f"Starting Training: {run_name}")
 

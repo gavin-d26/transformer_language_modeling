@@ -139,6 +139,7 @@ class Transformer(nn.Module):
         else:
 
             preds = self.lm_head(x[:, [-1], :])
+            # exclude <BOS> token from predictions
             preds[:, :, self.BOS_TOKEN_ID] += float("-inf")
             loss = None
 
