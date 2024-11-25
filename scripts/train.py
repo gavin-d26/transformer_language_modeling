@@ -43,8 +43,8 @@ class Perplexity:
 
     # used to compute F1 Score at the end of an epoch
     def compute(self):
-        mean_perplexity = torch.exp(-self.log_probs.mean()).cpu().numpy()
         perplexity = torch.exp(-self.log_probs).cpu().numpy()
+        mean_perplexity = perplexity.mean()
         self.reset()
         return mean_perplexity, perplexity
 
