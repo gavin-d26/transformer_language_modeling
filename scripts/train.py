@@ -85,8 +85,9 @@ def train_func(
     scheduler = get_scheduler(
         "cosine_with_min_lr",
         optimizer,
-        num_warmup_steps=int(num_warmpup_steps * epochs * len(train_loader)),
-        num_training_steps=epochs * len(train_loader),
+        num_warmup_steps=int(num_warmpup_steps * epochs * len(train_loader))
+        // grad_accumulation_steps,
+        num_training_steps=(epochs * len(train_loader)) // grad_accumulation_steps,
         scheduler_specific_kwargs={"min_lr": min_lr},
     )
 
@@ -130,10 +131,10 @@ def train_func(
 
                 optimizer.step()
                 optimizer.zero_grad()
+                scheduler.step()
 
             train_perlexity.update(preds.detach(), targets)
             train_loss.append(loss.detach().cpu())
-            scheduler.step()
 
         # evaluate on val set
         model.eval()
