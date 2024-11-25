@@ -2,9 +2,11 @@ hp_configs = {
     "run_name": "test-1",
     "lr": 1e-3,
     "batch_size": 128,
-    "epochs": 100,
+    "epochs": 1,
     "optimizer": "adamW",  # 'adamW'
     "dropout": 0.4,
+    # dataloaders
+    "tokenizer": "openai-community/gpt2",
     # transformer model
     "embed_dim": 32,
     "block_size": 128,

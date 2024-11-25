@@ -11,6 +11,7 @@ random.seed(0)
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.0):
+        super().__init__()
         assert embed_dim % num_heads == 0
 
         self.embed_dim = embed_dim
@@ -26,17 +27,17 @@ class MultiHeadAttention(nn.Module):
         Q, K, V = self.atten_proj(x).split(self.embed_dim, dim=-1)
         b, s, _ = Q.shape
 
-        Q = Q.view(b, s, self.num_heads, self.head_dim)
-        K = K.view(b, s, self.num_heads, self.head_dim)
-        V = V.view(b, s, self.num_heads, self.head_dim)
+        Q = Q.view(b, s, self.num_heads, self.head_dim).transpose(1, 2)
+        K = K.view(b, s, self.num_heads, self.head_dim).transpose(1, 2)
+        V = V.view(b, s, self.num_heads, self.head_dim).transpose(1, 2)
 
         atten = (
             F.scaled_dot_product_attention(
-                Q, K, V, dropout=self.dropout, is_causal=True
+                Q, K, V, dropout_p=self.dropout, is_causal=True
             )
-            .permute(0, 2, 1, 3)
+            .transpose(1, 2)
             .contiguous()
-            .view(7, 2, -1)
+            .view(b, s, -1)
         )
         output = F.dropout(self.output_proj(atten), p=self.dropout).contiguous()
         return output
@@ -44,6 +45,7 @@ class MultiHeadAttention(nn.Module):
 
 class MLPLayer(nn.Module):
     def __init__(self, embed_dim, dropout=0.0):
+        super().__init__()
         self.embed_dim = embed_dim
         self.dropout = dropout
         self.fc1 = nn.Linear(embed_dim, 4 * embed_dim)
@@ -51,13 +53,14 @@ class MLPLayer(nn.Module):
         self.activation = nn.ReLU()
 
     def forward(self, x):
-        x = nn.activation(self.fc1(x))
+        x = self.activation(self.fc1(x))
         x = F.dropout(self.fc2(x), self.dropout)
         return x
 
 
 class DecoderBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.0):
+        super().__init__()
         self.embed_dim = embed_dim
 
         self.ln1 = nn.LayerNorm(embed_dim)
@@ -83,7 +86,9 @@ class Transformer(nn.Module):
         PADDING_TOKEN_ID=None,
         BOS_TOKEN_ID=None,
     ):
+        super().__init__()
         self.embed_dim = embed_dim
+        self.block_size = block_size
         self.vocab_size = vocab_size
         self.num_heads = num_heads
         self.num_blocks = num_blocks
@@ -91,7 +96,7 @@ class Transformer(nn.Module):
         self.BOS_TOKEN_ID = BOS_TOKEN_ID
 
         self.token_embeds = nn.Embedding(vocab_size, embed_dim)
-        self.pos_embeds = nn.Embedding(block_size)
+        self.pos_embeds = nn.Embedding(block_size, embed_dim)
         self.dropout = nn.Dropout(dropout)
 
         self.blocks = nn.ModuleList(
@@ -107,10 +112,10 @@ class Transformer(nn.Module):
     def forward(self, x, targets=None):
 
         b, s = x.shape
-        seq_len = torch.arange(seq_len, dtype=torch.long, device=x.device)
+        seq_len = torch.arange(s, dtype=torch.long, device=x.device).unsqueeze(0)
 
         token_embed = self.token_embeds(x)
-        pos_embed = self.pos_embeds(x)
+        pos_embed = self.pos_embeds(seq_len)
         x = self.dropout(token_embed + pos_embed)
 
         for block in self.blocks:
@@ -125,8 +130,8 @@ class Transformer(nn.Module):
 
             # compute loss
             loss = F.cross_entropy(
-                preds.view(-1, preds.shape[-1]),
-                targets.view(-1),
+                preds.reshape(-1, preds.shape[-1]),
+                targets.reshape(-1),
                 reduction="mean",
                 ignore_index=self.PADDING_TOKEN_ID,
             )
@@ -134,6 +139,7 @@ class Transformer(nn.Module):
         else:
 
             preds = self.lm_head(x[:, [-1], :])
+            preds[:, :, self.BOS_TOKEN_ID] += float("-inf")
             loss = None
 
         return preds, loss

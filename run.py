@@ -30,9 +30,6 @@ def main():
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
     os.environ["CUDA_VISIBLE_DEVICES"] = configs.hp_configs["gpu_idx"]
 
-    # get train and val dataframes
-    ptb_dataset = load_dataset("ptb-text-only/ptb_text_only")
-
     # create vectorizer and dataloaders
     (
         train_loader,
@@ -41,17 +38,26 @@ def main():
         PADDING_TOKEN_ID,
         BOS_TOKEN_ID,
         EOS_TOKEN_ID,
-    ) = datatools.create_dataloaders(ptb_dataset, configs.hp_configs["batch_size"])
+        VOCAB_SIZE,
+    ) = datatools.create_dataloaders(
+        batch_size=configs.hp_configs["batch_size"],
+        tokenizer=configs.hp_configs["tokenizer"],
+        vocab_size=32000,
+        block_size=configs.hp_configs["block_size"],
+        device=configs.hp_configs["device"],
+        num_workers=configs.hp_configs["num_proc"],
+    )
 
     # initialize model
     model = models.Transformer(
         embed_dim=configs.hp_configs["embed_dim"],
+        block_size=configs.hp_configs["block_size"],
+        vocab_size=VOCAB_SIZE,
         num_heads=configs.hp_configs["nhead"],
         num_blocks=configs.hp_configs["num_blocks"],
         dropout=configs.hp_configs["dropout"],
-        vocab_size=len(ptb_dataset["train"]["text"][0]),
-        padding_idx=PADDING_TOKEN_ID,
-        bos_token_id=BOS_TOKEN_ID,
+        PADDING_TOKEN_ID=PADDING_TOKEN_ID,
+        BOS_TOKEN_ID=BOS_TOKEN_ID,
     )
 
     train.train_func(
@@ -59,15 +65,15 @@ def main():
         train_loader,
         val_loader,
         hp_config=configs.hp_configs,
-        device=configs.device,
         wandb_flag=False,
+        PADDING_TOKEN_ID=PADDING_TOKEN_ID,
     )
 
     predict.make_submission_file(
         model,
         test_loader,
         save_submission_file_path=submission_csv_path,
-        device=configs.device,
+        device=configs.hp_configs["device"],
     )
 
 

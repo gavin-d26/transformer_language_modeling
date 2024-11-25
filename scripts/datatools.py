@@ -86,30 +86,39 @@ def create_dataloaders(
     )
 
     # enable padding and truncation based on block size
-    tokenizer.enable_padding(length=block_size)
-    tokenizer.enable_truncation(max_length=block_size)
-
     PADDING_TOKEN_ID = tokenizer.token_to_id("[PAD]")
     BOS_TOKEN_ID = tokenizer.token_to_id("[BOS]")
     EOS_TOKEN_ID = tokenizer.token_to_id("[EOS]")
+    VOCAB_SIZE = tokenizer.get_vocab_size()
+
+    tokenizer.enable_padding(length=block_size, pad_id=tokenizer.token_to_id("[PAD]"))
+    tokenizer.enable_truncation(max_length=block_size)
 
     # prerocessing function for applying the tokenizer
     def batch_preprocess(batch):
         output = {
-            "sentence": tokenizer.encode_batch(
-                batch["sentence"].ids, add_special_tokens=True
+            "sentence": torch.LongTensor(
+                [
+                    sentence.ids
+                    for sentence in tokenizer.encode_batch(
+                        batch["sentence"], add_special_tokens=True
+                    )
+                ]
             )
         }
         return output
 
     # preprocess the datasets
-    ptb_dataset = ptb_dataset.map(batch_preprocess, batched=True, num_proc=num_workers)
+    ptb_dataset = ptb_dataset.map(batch_preprocess, batched=True, num_proc=1)
 
     # seed the workers
     def worker_init_fn(worker_id):
         seed = 0
         np.random.seed(seed + worker_id)
         random.seed(seed + worker_id)
+
+    def collate_fn(batch):
+        return torch.LongTensor([item["sentence"] for item in batch])
 
     train_loader = torch.utils.data.DataLoader(
         ptb_dataset["train"],
@@ -118,6 +127,7 @@ def create_dataloaders(
         pin_memory=device == "cuda",
         num_workers=num_workers,
         worker_init_fn=worker_init_fn,
+        collate_fn=collate_fn,
     )
 
     val_loader = torch.utils.data.DataLoader(
@@ -127,6 +137,7 @@ def create_dataloaders(
         pin_memory=device == "cuda",
         num_workers=num_workers,
         worker_init_fn=worker_init_fn,
+        collate_fn=collate_fn,
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -136,6 +147,7 @@ def create_dataloaders(
         pin_memory=device == "cuda",
         num_workers=num_workers,
         worker_init_fn=worker_init_fn,
+        collate_fn=collate_fn,
     )
 
     return (
@@ -145,4 +157,5 @@ def create_dataloaders(
         PADDING_TOKEN_ID,
         BOS_TOKEN_ID,
         EOS_TOKEN_ID,
+        VOCAB_SIZE,
     )

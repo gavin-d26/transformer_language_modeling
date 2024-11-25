@@ -24,29 +24,30 @@ class Perplexity:
         # targets.shape = (batch_size, block_size)
         N, S, C = logits.shape
 
-        log_probs = (
-            F.log_softmax(logits, dim=-1)
+        logits = (
+            F.softmax(logits, dim=-1)
             .gather(dim=-1, index=targets.unsqueeze(-1))
             .squeeze(-1)
         )  # (N, S)
 
-        mask = targets != self.padding_value
+        mask = targets == self.padding_value
 
-        log_probs = log_probs[mask]
-        log_probs = log_probs.sum(dim=-1)
+        logits = logits.masked_fill(mask, 1)
+        log_probs = torch.log(logits)
+        log_probs = log_probs.mean(dim=-1)
 
         self.log_probs = (
-            torch.cat([self.log_probs, log_probs])
+            torch.cat([self.log_probs, log_probs], dim=0)
             if self.log_probs is not None
             else log_probs
         )
 
     # used to compute F1 Score at the end of an epoch
     def compute(self):
-        mean_log_probs = self.log_probs.mean().item()
-        log_probs = self.log_probs.cpu().numpy
+        mean_perplexity = torch.exp(-self.log_probs.mean()).cpu().numpy()
+        perplexity = torch.exp(-self.log_probs).cpu().numpy()
         self.reset()
-        return mean_log_probs, log_probs
+        return mean_perplexity, perplexity
 
     def reset(self):
         self.log_probs = None
@@ -58,12 +59,9 @@ def train_func(
     train_loader,
     val_loader,
     hp_config,
-    device="cpu",
     wandb_flag=False,
     PADDING_TOKEN_ID=None,
 ):
-    device = torch.device(device)
-    model.to(device=device)
 
     run_name = hp_config["run_name"]
     epochs = hp_config["epochs"]
@@ -71,6 +69,10 @@ def train_func(
     min_lr = hp_config["min_lr"]
     num_warmpup_steps = hp_config["num_warmpup_steps"]
     optimizer = hp_config["optimizer"]
+    device = hp_config["device"]
+
+    device = torch.device(device)
+    model.to(device=device)
 
     if optimizer == "adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -93,7 +95,7 @@ def train_func(
     max_epoch = 0
 
     if wandb_flag is True:
-        wandb.init(project="sequence_tagging", name=run_name, config=hp_config)
+        wandb.init(project="language_modeling", name=run_name, config=hp_config)
 
     print(f"Starting Training: {run_name}")
 
@@ -105,27 +107,29 @@ def train_func(
 
         # train on train set
         model.train()
-        for inputs, targets in train_loader:
-            inputs, targets = inputs.to(device), targets.to(device)
+        for batch in tqdm(train_loader, desc="Training"):
+            batch = batch.to(device)
+            inputs, targets = batch[:, :-1], batch[:, 1:]
 
             preds, loss = model(inputs, targets=targets)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
-            train_perlexity.update(preds.detach().cpu(), targets)
+            train_perlexity.update(preds.detach(), targets)
             train_loss.append(loss.detach().cpu())
             scheduler.step()
 
         # evaluate on val set
         model.eval()
         with torch.inference_mode():
-            for inputs, targets in val_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
+            for batch in tqdm(val_loader, desc="Validation"):
+                batch = batch.to(device)
+                inputs, targets = batch[:, :-1], batch[:, 1:]
 
                 preds, loss = model(inputs, targets=targets)
                 val_loss.append(loss.detach().cpu())
-                val_perplexity.update(preds.detach().cpu(), targets)
+                val_perplexity.update(preds.detach(), targets)
 
         metrics = {
             "train_loss": sum(train_loss) / len(train_loss),

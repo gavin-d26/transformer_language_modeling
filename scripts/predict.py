@@ -2,7 +2,7 @@ import random
 import numpy as np
 import pandas as pd
 import torch
-from .datatools import utterances_to_tensors, clean_utterance_text
+from tqdm import tqdm
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -21,11 +21,12 @@ def make_submission_file(
     test_perplexity = Perplexity(padding_value=model.PADDING_TOKEN_ID)
 
     with torch.inference_mode():
-        for inputs, targets in test_dataloader:
-            inputs, targets = inputs.to(device), targets.to(device)
+        for batch in tqdm(test_dataloader, desc="Testing"):
+            batch = batch.to(device)
+            inputs, targets = batch[:, :-1], batch[:, 1:]
             preds, _ = model(inputs, targets=targets)
-            test_perplexity.update(preds.detach().cpu(), targets)
+            test_perplexity.update(preds.detach(), targets)
 
     log_probs = test_perplexity.compute()[1]
-    df = pd.DataFrame([np.arange(len(log_probs)), log_probs], columns=["ID", "ppl"])
+    df = pd.DataFrame({"ID": np.arange(len(log_probs)), "ppl": log_probs})
     df.to_csv(save_submission_file_path, index=False)
