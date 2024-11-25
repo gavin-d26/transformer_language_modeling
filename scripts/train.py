@@ -87,6 +87,8 @@ def train_func(
         scheduler_specific_kwargs={"min_lr": min_lr},
     )
 
+    print(f"num_training_steps: {epochs * len(train_loader)}")
+
     train_perlexity = Perplexity(padding_value=PADDING_TOKEN_ID)
     val_perplexity = Perplexity(padding_value=PADDING_TOKEN_ID)
 
