@@ -12,7 +12,7 @@ np.random.seed(0)
 random.seed(0)
 
 
-# class to compute  F1 Score
+# class to compute  Perplexity
 class Perplexity:
     def __init__(self, padding_value):
         self.log_probs = None
@@ -41,7 +41,7 @@ class Perplexity:
             else log_probs
         )
 
-    # used to compute F1 Score at the end of an epoch
+    # used to compute Perplexity at the end of an epoch
     def compute(self):
         perplexity = torch.exp(-self.log_probs).cpu().numpy()
         mean_perplexity = perplexity.mean()
