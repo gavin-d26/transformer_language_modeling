@@ -5,7 +5,7 @@ hp_configs = {
     "epochs": 10,
     "optimizer": "adamW",  # 'adamW'
     "dropout": 0.1,
-    # dataloaders
+    # tokenizer
     "tokenizer": "openai-community/gpt2",
     # transformer model
     "embed_dim": 32,
