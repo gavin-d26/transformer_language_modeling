@@ -33,8 +33,7 @@ class Perplexity:
         mask = targets == self.padding_value
 
         logits = logits.masked_fill(mask, 1)
-        log_probs = torch.log(logits)
-        log_probs = log_probs.mean(dim=-1)
+        log_probs = torch.log(logits).sum(dim=-1) / torch.logical_not(mask).sum(dim=-1)
 
         self.log_probs = (
             torch.cat([self.log_probs, log_probs], dim=0)

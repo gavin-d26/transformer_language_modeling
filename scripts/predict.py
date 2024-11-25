@@ -27,6 +27,7 @@ def make_submission_file(
             preds, _ = model(inputs, targets=targets)
             test_perplexity.update(preds.detach(), targets)
 
-    log_probs = test_perplexity.compute()[1]
-    df = pd.DataFrame({"ID": np.arange(len(log_probs)), "ppl": log_probs})
+    mean_test_perplexity, test_perplexity = test_perplexity.compute()
+    df = pd.DataFrame({"ID": np.arange(len(test_perplexity)), "ppl": test_perplexity})
     df.to_csv(save_submission_file_path, index=False)
+    print(f"Mean test perplexity: {mean_test_perplexity}")
