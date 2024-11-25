@@ -70,6 +70,7 @@ def train_func(
     optimizer = hp_config["optimizer"]
     device = hp_config["device"]
     project_name = hp_config["project_name"]
+    gpu_idx = hp_config["gpu_idx"]
 
     device = torch.device(device)
     model.to(device=device)
@@ -157,7 +158,7 @@ def train_func(
         if metrics["val_perplexity"] < min_val_perlexity:
             if not os.path.isdir("./checkpoints"):
                 os.mkdir("./checkpoints")
-            torch.save(model.state_dict(), "./checkpoints/model.pt")
+            torch.save(model.state_dict(), "./checkpoints/model" + gpu_idx + ".pt")
             min_val_perlexity = metrics["val_perplexity"]
             best_epoch_train_perplexity = metrics["train_perlexity"]
             max_epoch = epoch
@@ -179,4 +180,6 @@ def train_func(
         wandb.finish()
 
     model.to(device=torch.device("cpu"))
-    model.load_state_dict(torch.load("./checkpoints/model.pt", map_location="cpu"))
+    model.load_state_dict(
+        torch.load("./checkpoints/model" + gpu_idx + ".pt", map_location="cpu")
+    )
