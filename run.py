@@ -65,7 +65,7 @@ def main():
         train_loader,
         val_loader,
         hp_config=configs.hp_configs,
-        wandb_flag=False,
+        wandb_flag=configs.hp_configs["wandb_flag"],
         PADDING_TOKEN_ID=PADDING_TOKEN_ID,
     )
 
