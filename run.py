@@ -28,7 +28,7 @@ def main():
 
     # set environment variables
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-    os.environ["CUDA_VISIBLE_DEVICES"] = configs.hp_configs["gpu_idx"]
+    # os.environ["CUDA_VISIBLE_DEVICES"] = configs.hp_configs["gpu_idx"]
 
     # create vectorizer and dataloaders
     (
